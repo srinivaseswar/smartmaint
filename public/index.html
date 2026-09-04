@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartMaint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --paper:#F1F3F5; --panel:#FFFFFF; --panel-tint:#F7F8FA; --rail:#191E27; --rail-hover:#232A36;
+      --ink:#1B222B; --ink-dim:#5B6672; --ink-faint:#8A93A0; --on-rail:#AEB7C4; --on-rail-dim:#69707F;
+      --line:#DCE2E8; --line-strong:#C3CBD3; --amber:#F2A33C; --amber-deep:#C97F1E; --amber-tint:#FCEEDA;
+      --teal:#1F9E85; --teal-tint:#E1F5F0; --crimson:#D9464F; --crimson-tint:#FBE7E8; --indigo:#3E5C8A; --indigo-tint:#E7ECF4;
+      --radius:6px; --radius-lg:8px; font-family:'IBM Plex Sans', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; overflow: hidden; }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; }
+    h1, h2, h3, .display { font-family: 'Space Grotesk', sans-serif; }
+    .mono { font-family: 'IBM Plex Mono', monospace; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
+    .hidden { display: none !important; }
+    .blueprint-bg { position: fixed; inset: 0; background-color: var(--paper); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 34px 34px; background-position: center; }
+    .blueprint-bg::after { content: ''; position: absolute; inset: 0; background: radial-gradient(650px 500px at 50% 38%, rgba(241,243,245,0) 0%, var(--paper) 78%); }
+    .live-panel { position: relative; }
+    .live-panel::before, .live-panel::after { content: ''; position: absolute; width: 10px; height: 10px; pointer-events: none; }
+    .live-panel::before { top: -1px; left: -1px; border-top: 2px solid var(--amber); border-left: 2px solid var(--amber); }
+    .live-panel::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--amber); border-right: 2px solid var(--amber); }
+
+    #login-screen { height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; position: relative; }
+    .login-card { position: relative; z-index: 1; width: 100%; max-width: 460px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); padding: 36px 34px 28px; box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 24px 60px -30px rgba(27,34,43,.25); max-height: 92vh; overflow-y: auto; }
+    .login-eyebrow { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--amber-deep); letter-spacing: .5px; margin-bottom: 18px; }
+    .login-eyebrow .sq { width: 7px; height: 7px; background: var(--amber); flex-shrink: 0; }
+    .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .brand-glyph { width: 38px; height: 38px; border-radius: 8px; background: var(--ink); display: flex; align-items: center; justify-content: center; }
+    .brand-glyph svg { width: 20px; height: 20px; stroke: var(--amber); }
+    .login-card h1 { font-size: 23px; font-weight: 700; letter-spacing: -.2px; }
+    .login-card p.sub { color: var(--ink-dim); font-size: 13.5px; margin-top: 8px; margin-bottom: 24px; line-height: 1.5; max-width: 360px; }
+    .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 22px; }
+    .role-card { display: flex; align-items: center; gap: 10px; background: var(--panel-tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; text-align: left; transition: border-color .12s, background .12s; }
+    .role-card .code { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--ink-faint); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; flex-shrink: 0; }
+    .role-card span.name { font-size: 12.5px; font-weight: 600; color: var(--ink-dim); }
+    .role-card:hover { border-color: var(--line-strong); }
+    .role-card.active { border-color: var(--amber); background: var(--amber-tint); }
+    .role-card.active .code { border-color: var(--amber); color: var(--amber-deep); }
+    .role-card.active span.name { color: var(--ink); }
+    .field-label { font-size: 11.5px; color: var(--ink-dim); margin-bottom: 6px; display: block; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+    .field { display: flex; align-items: center; gap: 9px; background: var(--panel-tint); border: 1px solid var(--line); border-radius: var(--radius); padding: 11px 12px; margin-bottom: 14px; }
+    .field:focus-within { border-color: var(--amber); }
+    .field svg { width: 15px; height: 15px; stroke: var(--ink-faint); flex-shrink: 0; }
+    .field input { background: transparent; border: none; outline: none; color: var(--ink); font-size: 14px; width: 100%; font-family: inherit; }
+    .field input::placeholder { color: var(--ink-faint); }
+    .btn-primary { width: 100%; padding: 12px; border: none; border-radius: var(--radius); background: var(--amber); color: var(--ink); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background .12s; }
+    .btn-primary:hover { background: var(--amber-deep); color: #fff; }
+    .login-foot { text-align: center; margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
+
+    #app-screen { height: 100%; display: none; }
+    .shell { display: flex; height: 100%; }
+    .rail { width: 64px; flex-shrink: 0; background: var(--rail); display: flex; flex-direction: column; height: 100%; transition: width .16s ease; overflow: hidden; position: relative; z-index: 20; }
+    .rail:hover { width: 246px; }
+    .rail-head { display: flex; align-items: center; gap: 12px; height: 60px; flex-shrink: 0; padding: 0 20px; border-bottom: 1px solid #262D39; }
+    .rail-head .brand-glyph { background: var(--amber); }
+    .rail-head .brand-glyph svg { stroke: var(--ink); }
+    .rail-head .titles { white-space: nowrap; line-height: 1.2; opacity: 0; transition: opacity .12s; }
+    .rail:hover .rail-head .titles { opacity: 1; }
+    .rail-head .titles b { font-family: 'Space Grotesk', sans-serif; font-size: 14.5px; color: #fff; }
+    .rail-head .titles div { font-size: 10px; color: var(--on-rail-dim); font-family: 'IBM Plex Mono', monospace; letter-spacing: .3px; }
+    .rail-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 10px; }
+    .rail-group { margin-bottom: 4px; }
+    .rail-group-label { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .6px; color: var(--on-rail-dim); padding: 12px 10px 6px; white-space: nowrap; opacity: 0; transition: opacity .1s; }
+    .rail:hover .rail-group-label { opacity: 1; }
+    .rail-item { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 6px; margin-bottom: 1px; color: var(--on-rail); font-size: 13px; font-weight: 500; white-space: nowrap; border-left: 2px solid transparent; }
+    .rail-item svg { width: 17px; height: 17px; stroke: currentColor; flex-shrink: 0; }
+    .rail-item:hover { background: var(--rail-hover); color: #fff; }
+    .rail-item.active { background: var(--rail-hover); color: #fff; border-left: 2px solid var(--amber); }
+    .rail-item .label { opacity: 0; transition: opacity .1s; }
+    .rail:hover .rail-item .label { opacity: 1; }
+    .rail-foot { padding: 12px 10px; border-top: 1px solid #262D39; }
+    .rail-user { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 6px; }
+    .rail-avatar { width: 28px; height: 28px; border-radius: 5px; flex-shrink: 0; background: var(--amber); color: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+    .rail-user .who { flex: 1; overflow: hidden; opacity: 0; transition: opacity .1s; line-height: 1.2; }
+    .rail:hover .rail-user .who { opacity: 1; }
+    .rail-user .who b { font-size: 12px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .rail-user .who span { font-size: 10.5px; color: var(--on-rail-dim); }
+    .rail-logout { background: transparent; border: none; color: var(--on-rail-dim); flex-shrink: 0; opacity: 0; transition: opacity .1s; }
+    .rail:hover .rail-logout { opacity: 1; }
+    .rail-logout svg { width: 14px; height: 14px; }
+    .rail-logout:hover { color: var(--crimson); }
+
+    .main { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; min-width: 0; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 26px; height: 60px; flex-shrink: 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .topbar-titles .crumb { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-faint); letter-spacing: .3px; margin-bottom: 2px; }
+    .topbar-titles h2 { font-size: 19px; font-weight: 700; letter-spacing: -.2px; }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 6px; background: var(--panel-tint); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; position: relative; color: var(--ink-dim); }
+    .icon-btn svg { width: 15px; height: 15px; stroke: currentColor; }
+    .icon-btn .dot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--crimson); border: 1.5px solid var(--panel-tint); }
+    .content { flex: 1; overflow-y: auto; padding: 26px 28px 60px; }
+
+    .cat-tag { display: inline-flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .5px; color: var(--amber-deep); background: var(--amber-tint); border: 1px solid #EBCE9E; padding: 4px 9px 4px 7px; border-radius: 5px; margin-bottom: 12px; }
+    .cat-tag .sq { width: 6px; height: 6px; background: var(--amber-deep); flex-shrink: 0; }
+    .page-purpose { color: var(--ink-dim); font-size: 14px; max-width: 760px; line-height: 1.65; margin-bottom: 22px; }
+    .kpi-row { display: grid; grid-template-columns: 1.15fr .95fr .95fr .95fr; gap: 14px; margin-bottom: 16px; }
+    .gauge-card { background: var(--ink); border-radius: var(--radius-lg); padding: 20px 22px; display: flex; align-items: center; gap: 18px; color: #fff; position: relative; overflow: hidden; }
+    .gauge-card .gauge-label { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--on-rail-dim); letter-spacing: .4px; margin-bottom: 6px; }
+    .gauge-ring { width: 78px; height: 78px; border-radius: 50%; flex-shrink: 0; background: conic-gradient(var(--amber) 0% calc(var(--pct,92)*1%), #2A313D calc(var(--pct,92)*1%) 100%); display: flex; align-items: center; justify-content: center; }
+    .gauge-ring .inner { width: 60px; height: 60px; border-radius: 50%; background: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .gauge-ring .inner b { font-family: 'Space Grotesk', sans-serif; font-size: 18px; line-height: 1; }
+    .gauge-ring .inner span { font-size: 9px; color: var(--on-rail-dim); margin-top: 2px; }
+    .gauge-card .gauge-sub { font-size: 12px; color: var(--on-rail-dim); margin-top: 6px; }
+    .kpi-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; }
+    .kpi-card .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .kpi-card .icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .kpi-card .icon svg { width: 14px; height: 14px; stroke-width: 2.2; }
+    .kpi-card .value { font-family: 'Space Grotesk', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: -.4px; }
+    .kpi-card .label { font-size: 12px; color: var(--ink-faint); margin-top: 3px; }
+    .kpi-card .delta { font-size: 11px; font-weight: 600; margin-top: 9px; display: flex; align-items: center; gap: 4px; font-family: 'IBM Plex Mono', monospace; }
+    .grid-2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px 20px; }
+    .card h3 { font-size: 14px; font-weight: 700; margin-bottom: 2px; font-family: 'Space Grotesk', sans-serif; }
+    .card .card-sub { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 14px; }
+    .feature-list { list-style: none; }
+    .feature-list li { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .feature-list li:last-child { border-bottom: none; }
+    .feature-list .bar-wrap { flex: 1; margin: 0 12px; height: 5px; border-radius: 3px; background: var(--panel-tint); overflow: hidden; border: 1px solid var(--line); }
+    .feature-list .bar-fill { height: 100%; background: var(--amber); }
+    .feature-list .fname { color: var(--ink-dim); flex: 0 0 46%; }
+    .feature-list .fpct { font-weight: 700; font-size: 12px; color: var(--ink); width: 32px; text-align: right; font-family: 'IBM Plex Mono', monospace; }
+    .workflow-steps { list-style: none; counter-reset: step; }
+    .workflow-steps li { counter-increment: step; position: relative; padding: 0 0 16px 32px; font-size: 13px; color: var(--ink-dim); line-height: 1.55; }
+    .workflow-steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 21px; height: 21px; border-radius: 4px; background: var(--panel-tint); border: 1px solid var(--line-strong); color: var(--amber-deep); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; }
+    .workflow-steps li::after { content: ''; position: absolute; left: 10px; top: 21px; bottom: 0; width: 1px; background: var(--line); }
+    .workflow-steps li:last-child::after { display: none; }
+    .workflow-steps li:last-child { padding-bottom: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; color: var(--ink-faint); font-weight: 600; font-size: 10.5px; letter-spacing: .4px; padding: 0 14px 10px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; }
+    tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--ink-dim); white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--panel-tint); }
+    td.strong { color: var(--ink); font-weight: 600; }
+    td.id { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-dim); }
+    .table-scroll { overflow-x: auto; }
+    .status-pill { padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .roles-line { font-size: 13px; color: var(--ink-dim); line-height: 1.65; }
+    .roles-line b { color: var(--ink); }
+    .chart-box { position: relative; height: 230px; }
+    .chart-box.small { height: 180px; }
+    .fields-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fields-chip { font-size: 11.5px; color: var(--ink-dim); background: var(--panel-tint); border: 1px solid var(--line); padding: 6px 10px; border-radius: 5px; font-family: 'IBM Plex Mono', monospace; }
+    .settings-group { margin-top: 6px; }
+    .settings-group:first-child { margin-top: 0; }
+    .settings-group-label { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .5px; color: var(--ink-faint); padding: 16px 0 8px; border-top: 1px solid var(--line); margin-top: 10px; }
+    .settings-group:first-child .settings-group-label { border-top: none; margin-top: 0; padding-top: 2px; }
+    .settings-row { display: flex; align-items: center; gap: 16px; padding: 10px 0; }
+    .settings-row-name { flex: 0 0 220px; font-size: 13px; font-weight: 600; color: var(--ink); }
+    .settings-row-value { flex: 1; font-size: 12.5px; color: var(--ink-dim); }
+    .settings-row-edit { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--amber-deep); background: var(--amber-tint); border: 1px solid #EBCE9E; padding: 4px 10px; border-radius: 5px; flex-shrink: 0; }
+    .toggle { width: 36px; height: 20px; border-radius: 999px; background: var(--line-strong); flex-shrink: 0; padding: 2px; transition: background .15s; }
+    .toggle .knob { width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    .toggle.on { background: var(--amber); }
+    .toggle.on .knob { transform: translateX(16px); }
+
+    @media (max-width:1050px) {
+      .kpi-row { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="login-screen">
+    <div class="blueprint-bg"></div>
+    <div class="login-card">
+      <div class="login-eyebrow"><span class="sq"></span>PLANT ACCESS TERMINAL</div>
+      <div class="brand-row">
+        <div class="brand-glyph">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+        </div>
+        <h1>SmartMaint</h1>
+      </div>
+      <p class="sub">Industrial maintenance & spare-parts management. Select your role and sign in to continue.</p>
+      <div class="role-grid" id="role-grid"></div>
+      <label class="field-label">Email address</label>
+      <div class="field">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6c0-1.1-.9-2-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        <input id="login-email" type="text" placeholder="you@smartmaint.com" />
+      </div>
+      <label class="field-label">Password</label>
+      <div class="field">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <input id="login-pass" type="password" placeholder="••••••••••" />
+      </div>
+      <button class="btn-primary" onclick="doLogin()">
+        Sign in as <span id="login-role-label">Super Admin</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </button>
+      <p class="login-foot">Prototype build — any email/password signs you in with the selected role.</p>
+    </div>
+  </div>
+
+  <div id="app-screen">
+    <div class="shell">
+      <aside class="rail" id="rail">
+        <div class="rail-head">
+          <div class="brand-glyph">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+          </div>
+          <div class="titles"><b>SmartMaint</b><div>PLANT-04 / MAIN</div></div>
+        </div>
+        <nav class="rail-nav" id="rail-nav"></nav>
+        <div class="rail-foot">
+          <div class="rail-user">
+            <div class="rail-avatar" id="user-avatar">SA</div>
+            <div class="who"><b id="user-name">Sarah Mitchell</b><span id="user-role">Super Admin</span></div>
+            <button class="rail-logout" onclick="doLogout()" title="Sign out">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </button>
+          </div>
+        </div>
+      </aside>
+      <div class="main">
+        <div class="topbar">
+          <div class="topbar-titles">
+            <div class="crumb" id="page-crumb">OVERVIEW / DASHBOARD</div>
+            <h2 id="page-title">Dashboard</h2>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" title="Notifications">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              <span class="dot"></span>
+            </button>
+            <button class="icon-btn" title="Audit Log" onclick="navigate('auditlog')">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </button>
+          </div>
+        </div>
+        <div class="content" id="content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ROLES = [
+      { id: 'superadmin', name: 'Super Admin', initials: 'SA' },
+      { id: 'factory', name: 'Factory Manager', initials: 'FM' },
+      { id: 'maintmgr', name: 'Maintenance Manager', initials: 'MM' },
+      { id: 'mainteng', name: 'Maintenance Engineer', initials: 'ME' },
+      { id: 'inventory', name: 'Inventory Manager', initials: 'IM' },
+      { id: 'procurement', name: 'Procurement Officer', initials: 'PO' },
+      { id: 'supplier', name: 'Supplier', initials: 'SP' }
+    ];
+
+    const ACCESS = {
+      dashboard: { superadmin: 'Full', factory: 'Full', maintmgr: 'View', mainteng: 'View', inventory: 'View', procurement: 'View', supplier: null },
+      machines: { superadmin: 'Full', factory: 'Full', maintmgr: 'Edit', mainteng: 'View', inventory: 'View', procurement: null, supplier: null },
+      maintenance: { superadmin: 'Full', factory: 'View', maintmgr: 'Full', mainteng: 'Edit', inventory: null, procurement: null, supplier: null },
+      breakdowns: { superadmin: 'Full', factory: 'View', maintmgr: 'Full', mainteng: 'Edit', inventory: null, procurement: null, supplier: null },
+      servicehist: { superadmin: 'Full', factory: 'View', maintmgr: 'Full', mainteng: 'Edit', inventory: 'View', procurement: null, supplier: null },
+      spareparts: { superadmin: 'Full', factory: 'View', maintmgr: 'Edit', mainteng: 'View', inventory: 'Full', procurement: 'Edit', supplier: 'View' },
+      forecasting: { superadmin: 'Full', factory: 'View', maintmgr: 'View', mainteng: null, inventory: 'Full', procurement: 'Edit', supplier: null },
+      suppliers: { superadmin: 'Full', factory: 'View', maintmgr: null, mainteng: null, inventory: 'Edit', procurement: 'Full', supplier: 'Edit' },
+      predictive: { superadmin: 'Full', factory: 'View', maintmgr: 'Full', mainteng: 'Edit', inventory: null, procurement: null, supplier: null },
+      warranty: { superadmin: 'Full', factory: 'View', maintmgr: 'Edit', mainteng: 'View', inventory: 'View', procurement: 'Edit', supplier: 'View' },
+      notifications: { superadmin: 'Full', factory: 'Edit', maintmgr: 'Edit', mainteng: 'View', inventory: 'Edit', procurement: 'Edit', supplier: 'View' },
+      auditlog: { superadmin: 'Full', factory: 'View', maintmgr: 'View', mainteng: null, inventory: 'View', procurement: 'View', supplier: null },
+      users: { superadmin: 'Full', factory: null, maintmgr: null, mainteng: null, inventory: null, procurement: null, supplier: null },
+      settings: { superadmin: 'Full', factory: 'Edit', maintmgr: null, mainteng: null, inventory: null, procurement: null, supplier: null }
+    };
+
+    const ICONS = {
+      dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect>',
+      machines: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>',
+      maintenance: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>',
+      breakdowns: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+      servicehist: '<path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
+      spareparts: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>',
+      forecasting: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
+      suppliers: '<rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle>',
+      predictive: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+      warranty: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+      notifications: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+      auditlog: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line>',
+      users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+      settings: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'
+    };
+
+    const NAV_GROUPS = [
+      { label: 'OVERVIEW', items: ['dashboard'] },
+      { label: 'ASSET MANAGEMENT', items: ['machines', 'maintenance', 'breakdowns', 'servicehist'] },
+      { label: 'INVENTORY & PROCUREMENT', items: ['spareparts', 'forecasting', 'suppliers'] },
+      { label: 'ANALYTICS & COMPLIANCE', items: ['predictive', 'warranty', 'notifications', 'auditlog'] },
+      { label: 'ADMINISTRATION', items: ['users', 'settings'] }
+    ];
+
+    const MODULES = {
+      dashboard: { title: 'Dashboard', category: 'OVERVIEW', purpose: 'Central command center giving every role a role-filtered, real-time snapshot of plant health.', features: [['Real-Time KPI Widgets', 30], ['Alerts & Exceptions Summary', 25], ['Quick Actions', 20], ['Performance Trend Widgets', 25]], roles: '<b>Super Admin, Factory Manager</b> — full · all other roles — view', fields: ['Widget config', 'OEE / uptime %', 'Open WO count', 'Critical alerts', 'Stock-out count'], workflow: ['User logs in and lands on the role-specific dashboard', 'System pulls live aggregates from Machines, Maintenance, Breakdowns and Spare Parts', 'Widgets auto-refresh on a configurable interval', 'User drills down from any widget into the source module'] },
+      machines: { title: 'Machines', category: 'ASSET MANAGEMENT', purpose: 'Master registry of all plant equipment.', features: [['Machine Registry & Master Data', 30], ['Specs & Document Vault', 25], ['Live Status Tracking', 25], ['Location / Hierarchy Mapping', 20]], roles: '<b>Super Admin, Factory Manager</b> — full · <b>Maintenance Manager</b> — edit · <b>Maint. Engineer, Inventory Manager</b> — view', fields: ['Machine ID / Asset Tag', 'Category, Manufacturer, Model', 'Installation date', 'Location / Line', 'Criticality rating'], workflow: ['Factory Manager registers a new machine with specs and documents', 'Machine is assigned to a location/line and criticality tier', 'Status updates automatically from linked breakdown/maintenance records', 'Machine record links to Service History, Warranty and Spare Parts BOM'], table: { cols: ['Asset Tag', 'Machine', 'Line', 'Criticality', 'Status'], rows: [['MC-1042', 'CNC Lathe HX-9', 'Line 1 — Machining', 'High', 'status:Running'], ['MC-1043', 'Hydraulic Press P-200', 'Line 1 — Machining', 'Critical', 'status:Running'], ['MC-2011', 'Conveyor Belt C-4', 'Line 2 — Assembly', 'Medium', 'status:Idle'], ['MC-2014', 'Robotic Welder RW-7', 'Line 2 — Assembly', 'Critical', 'status:Down'], ['MC-3005', 'Packaging Unit PK-3', 'Line 3 — Packaging', 'Low', 'status:Running']] } },
+      maintenance: { title: 'Maintenance', category: 'ASSET MANAGEMENT', purpose: 'Plans, schedules and tracks preventive maintenance and work orders.', features: [['Preventive Maintenance Scheduling', 35], ['Work Order Management', 30], ['Maintenance Checklists (SOP)', 20], ['Technician Assignment', 15]], roles: '<b>Super Admin, Maintenance Manager</b> — full · <b>Maint. Engineer</b> — edit/execute · <b>Factory Manager</b> — view', fields: ['Work Order #', 'Priority, status', 'Assigned technician(s)', 'Checklist sign-off', 'Parts consumed', 'Labour hours'], workflow: ['Maintenance Manager defines a PM plan per machine', 'System auto-generates work orders on schedule', 'Technician is assigned and completes the checklist', 'Work order is closed with parts/labour logged'], table: { cols: ['Work Order', 'Machine', 'Type', 'Technician', 'Due', 'Status'], rows: [['WO-3301', 'CNC Lathe HX-9', 'Preventive', 'R. Fernandes', 'Sep 05', 'status:Scheduled'], ['WO-3298', 'Hydraulic Press P-200', 'Preventive', 'A. Kumar', 'Sep 04', 'status:In Progress'], ['WO-3295', 'Robotic Welder RW-7', 'Corrective', 'S. Rao', 'Sep 03', 'status:Overdue'], ['WO-3290', 'Packaging Unit PK-3', 'Preventive', 'R. Fernandes', 'Sep 08', 'status:Scheduled']] } },
+      breakdowns: { title: 'Breakdowns', category: 'ASSET MANAGEMENT', purpose: 'Captures unplanned failures and records downtime for root-cause analysis.', features: [['Breakdown Reporting', 30], ['Root Cause Analysis (RCA)', 25], ['Downtime Tracking (MTTR)', 25], ['Resolution & Escalation', 20]], roles: '<b>Super Admin, Maintenance Manager</b> — full · <b>Maint. Engineer</b> — edit · <b>Factory Manager</b> — view', fields: ['Breakdown ID', 'Downtime start/end, MTTR', 'Failure category & root cause', 'Corrective action', 'Escalation level'], workflow: ['Operator/Engineer reports a breakdown against a machine', 'System timestamps downtime start and notifies the Maintenance Manager', 'Engineer diagnoses, logs root cause, and resolves', 'Unresolved or critical breakdowns auto-escalate'], table: { cols: ['Breakdown', 'Machine', 'Reported', 'Downtime', 'Root Cause', 'Status'], rows: [['BD-0512', 'Robotic Welder RW-7', 'Sep 03, 09:14', '2h 40m', 'Motor overheating', 'status:Open'], ['BD-0508', 'Conveyor Belt C-4', 'Sep 01, 14:02', '45m', 'Belt misalignment', 'status:Resolved'], ['BD-0501', 'CNC Lathe HX-9', 'Aug 28, 08:30', '1h 10m', 'Tool wear', 'status:Resolved']] } },
+      servicehist: { title: 'Service History', category: 'ASSET MANAGEMENT', purpose: 'Complete, auditable trail of every work order and breakdown event.', features: [['Historical Service Records', 35], ['Cost & Labour Tracking', 25], ['Technician Activity Logs', 20], ['Document Attachments', 20]], roles: '<b>Super Admin, Maintenance Manager</b> — full · <b>Maint. Engineer</b> — edit · <b>Factory Manager, Inventory Manager</b> — view', fields: ['Record ID, date, type', 'Technician(s) involved', 'Parts used & cost', 'Labour cost', 'Attached reports/photos'], workflow: ['Every closed work order or resolved breakdown auto-logs to Service History', 'Costs roll up automatically', 'Manager reviews trends per machine to inform replace-vs-repair decisions'], table: { cols: ['Date', 'Machine', 'Type', 'Technician', 'Parts Cost', 'Labour Cost'], rows: [['Sep 01', 'Conveyor Belt C-4', 'Breakdown Repair', 'A. Kumar', '₹2,400', '₹1,800'], ['Aug 30', 'Air Compressor AC-2', 'Preventive', 'A. Kumar', '₹850', '₹1,200'], ['Aug 28', 'CNC Lathe HX-9', 'Breakdown Repair', 'S. Rao', '₹5,600', '₹2,100'], ['Aug 22', 'Hydraulic Press P-200', 'Preventive', 'R. Fernandes', '₹1,100', '₹1,500']] } },
+      spareparts: { title: 'Spare Parts', category: 'INVENTORY & PROCUREMENT', purpose: 'Manages spare-parts catalog, stock levels and machine-to-part mapping.', features: [['Inventory Catalog & SKUs', 30], ['Stock Levels & Reorder Points', 30], ['Parts-to-Machine Mapping', 20], ['Warehouse / Bin Location', 20]], roles: '<b>Super Admin, Inventory Manager</b> — full · <b>Maintenance Manager, Procurement Officer</b> — edit · <b>Maint. Engineer, Supplier</b> — view', fields: ['Part SKU, category', 'On-hand qty, reorder point', 'Unit cost', 'Linked machine(s)', 'Bin / warehouse location'], workflow: ['Inventory Manager sets reorder points per part', 'Stock is auto-decremented when parts are consumed on a work order', 'Below-reorder items trigger low-stock alerts', 'Stock is replenished on goods receipt'], table: { cols: ['SKU', 'Part', 'On Hand', 'Reorder Pt', 'Bin', 'Status'], rows: [['SP-1180', 'Hydraulic Seal Kit', '6', '10', 'WH1-B12', 'status:Low Stock'], ['SP-1122', 'Drive Belt (C-4)', '18', '8', 'WH1-A03', 'status:In Stock'], ['SP-1099', 'Servo Motor 2.2kW', '2', '4', 'WH2-C07', 'status:Low Stock'], ['SP-1045', 'Pressure Valve', '0', '5', 'WH1-B09', 'status:Out of Stock']] } },
+      forecasting: { title: 'Forecasting', category: 'INVENTORY & PROCUREMENT', purpose: 'Uses historical use and upcoming PM schedules to predict future demand.', features: [['Demand Prediction Engine', 35], ['Consumption Trend Analysis', 30], ['Seasonal Adjustment', 20], ['Auto Reorder Recommendations', 15]], roles: '<b>Super Admin, Inventory Manager</b> — full · <b>Procurement Officer</b> — edit · <b>Factory Manager, Maintenance Manager</b> — view', fields: ['Part SKU', 'Historical consumption series', 'Predicted demand (30/60/90d)', 'Confidence interval', 'Recommended order qty'], workflow: ['Engine ingests historical consumption + upcoming PM schedules', 'Model projects demand per part for the selected horizon', 'System flags parts likely to stock-out before the next delivery', 'Recommendation is pushed to Procurement as a draft purchase request'], chartType: 'line' },
+      suppliers: { title: 'Suppliers & Procurement', category: 'INVENTORY & PROCUREMENT', purpose: 'Manages supplier directory and purchase-order lifecycle.', features: [['Supplier Directory & Ratings', 25], ['Purchase Order Management', 30], ['Quotation & Price Comparison', 25], ['Delivery / GRN Tracking', 20]], roles: '<b>Super Admin, Procurement Officer</b> — full · <b>Inventory Manager, Supplier</b> — edit · <b>Factory Manager</b> — view', fields: ['Supplier ID, contact, rating', 'PO number, line items, status', 'Quoted price / lead time', 'Goods Receipt Note (GRN)'], workflow: ['Procurement Officer raises a PO', 'Supplier submits/confirms quotation and delivery date', 'Goods arrive and are receipted, updating Spare Parts stock', 'Supplier performance is scored for future sourcing'], table: { cols: ['PO Number', 'Supplier', 'Items', 'Value', 'Expected', 'Status'], rows: [['PO-2231', 'Bosch Rexroth India', '3', '₹48,200', 'Sep 09', 'status:Approved'], ['PO-2228', 'SKF Bearings Ltd', '5', '₹22,900', 'Sep 06', 'status:In Transit'], ['PO-2219', 'Siemens Automation', '2', '₹1,12,000', 'Sep 12', 'status:Pending Approval']] } },
+      predictive: { title: 'Predictive Maintenance', category: 'ANALYTICS & COMPLIANCE', purpose: 'Applies condition data to predict machine failures before they happen.', features: [['Sensor / IoT Data Integration', 30], ['Failure Prediction Models', 30], ['Asset Health Score Dashboard', 25], ['Maintenance Recommendation Engine', 15]], roles: '<b>Super Admin, Maintenance Manager</b> — full · <b>Maint. Engineer</b> — edit · <b>Factory Manager</b> — view', fields: ['Sensor readings (vibration, temp, load)', 'Health score (0–100)', 'Predicted failure window', 'Recommended action & priority'], workflow: ['Sensor/IoT data streams in per machine', 'Model scores current health and flags anomaly trends', 'System recommends action before failure threshold is reached', 'Recommendation converts directly into a Maintenance work order'], table: { cols: ['Machine', 'Health Score', 'Trend', 'Predicted Window', 'Recommendation'], rows: [['Robotic Welder RW-7', '38 / 100', '▼ Declining', '5–8 days', 'Schedule motor inspection'], ['CNC Lathe HX-9', '81 / 100', '▲ Stable', '—', 'No action needed'], ['Hydraulic Press P-200', '64 / 100', '▼ Declining', '18–22 days', 'Check hydraulic seals']] } },
+      warranty: { title: 'Warranty', category: 'ANALYTICS & COMPLIANCE', purpose: 'Tracks warranty coverage for machines and parts so claims are never missed.', features: [['Warranty Registry', 30], ['Expiry Tracking & Alerts', 30], ['Claim Management', 25], ['Vendor Warranty Terms', 15]], roles: '<b>Super Admin</b> — full · <b>Maintenance Manager, Procurement Officer</b> — edit · others — view', fields: ['Warranty ID, machine/part', 'Coverage start/end date', 'Terms & exclusions', 'Claim status', 'Vendor reference'], workflow: ['Warranty terms captured at machine/part registration', 'System alerts owner before expiry', 'On failure, engineer checks warranty status before paid repair', 'Eligible failures are filed as a claim'], table: { cols: ['Asset', 'Vendor', 'Coverage Ends', 'Claims Filed', 'Status'], rows: [['Robotic Welder RW-7', 'Siemens Automation', 'Oct 14, 2026', '1', 'status:Active'], ['CNC Lathe HX-9', 'Bosch Rexroth India', 'Dec 01, 2026', '0', 'status:Active'], ['Servo Motor 2.2kW', 'Siemens Automation', 'Sep 20, 2026', '0', 'status:Expiring Soon']] } },
+      notifications: { title: 'Notifications', category: 'ANALYTICS & COMPLIANCE', purpose: 'Routes the right event to the right role through the right channel, on time.', features: [['Alert Rules Engine', 30], ['Multi-Channel Delivery', 25], ['Escalation Matrix', 25], ['Notification History Log', 20]], roles: '<b>Super Admin</b> — full · <b>Factory Manager, Maintenance Manager, Inventory Manager, Procurement Officer</b> — edit · others — view', fields: ['Rule trigger (event + threshold)', 'Recipient role(s)', 'Channel (email/SMS/push/in-app)', 'Escalation delay', 'Delivery status'], workflow: ['Admin configures rules for priority events', 'Triggering event fires the rule and dispatches through configured channels', 'If unacknowledged within SLA, it escalates', 'All notifications are logged for traceability'], table: { cols: ['Event', 'Trigger', 'Recipient', 'Channel', 'Time'], rows: [['Low stock — SP-1045', 'Qty = 0', 'Inventory Manager', 'Email + Push', '10 min ago'], ['Breakdown reported — RW-7', 'New breakdown', 'Maintenance Manager', 'SMS + Push', '1 hr ago'], ['Warranty expiring — Servo Motor', '30 days left', 'Procurement Officer', 'Email', 'Today, 08:00']] } },
+      auditlog: { title: 'Audit Log', category: 'ANALYTICS & COMPLIANCE', purpose: 'Immutable record of who did what and when across every module.', features: [['User Activity Tracking', 35], ['Data Change History', 30], ['Compliance Reports', 20], ['Export & Retention Policy', 15]], roles: '<b>Super Admin</b> — full · <b>Factory Manager, Inventory Manager, Procurement Officer</b> — view', fields: ['Timestamp, user, role', 'Module & record affected', 'Action type', 'Before/after values', 'IP / session metadata'], workflow: ['Every create/update/delete across modules writes an immutable audit entry', 'Admin/compliance filters by user, module, date range or action type', 'Reports are exported for compliance review or incident investigation'], table: { cols: ['Time', 'User', 'Action', 'Module', 'Detail'], rows: [['Sep 03, 14:12', 'sarah.mitchell', 'Approved', 'Suppliers & Procurement', 'PO-2231 approved'], ['Sep 03, 11:40', 'a.kumar', 'Updated', 'Maintenance', 'WO-3298 marked In Progress'], ['Sep 03, 09:15', 's.rao', 'Created', 'Breakdowns', 'BD-0512 reported']] } },
+      users: { title: 'User Management', category: 'ADMINISTRATION', purpose: 'Controls access and role assignment across SmartMaint.', features: [['Role-Based Access Control (RBAC)', 35], ['User Provisioning / Onboarding', 25], ['Permission Matrix', 25], ['Activity Monitoring', 15]], roles: '<b>Super Admin only</b> — full', fields: ['User ID, name, email', 'Assigned role(s)', 'Department / plant scope', 'Account status', 'Last login'], workflow: ['Super Admin creates a user and assigns one of the seven system roles', 'Role determines default module-level access per the Access Matrix', 'Admin can override individual permissions or suspend accounts', 'Login activity feeds the Audit Log'], table: { cols: ['User', 'Role', 'Department', 'Status', 'Last Login'], rows: [['Sarah Mitchell', 'Super Admin', 'Plant HQ', 'status:Active', 'Today, 09:02'], ['Arjun Kumar', 'Maintenance Engineer', 'Line 1', 'status:Active', 'Today, 08:41'], ['Priya Menon', 'Inventory Manager', 'Warehouse', 'status:Active', 'Yesterday']] } },
+      settings: { title: 'Settings', category: 'ADMINISTRATION', purpose: 'System-wide configuration for notifications, integrations and branding.', features: [['System Configuration', 30], ['Notification Preferences', 20], ['Integration Settings (API/ERP)', 25], ['Branding & Localization', 25]], roles: '<b>Super Admin</b> — full · <b>Factory Manager</b> — edit, scoped', fields: ['Company / plant profile', 'Default units, currency, timezone', 'API keys / ERP connection', 'Notification defaults', 'Theme / logo'], workflow: ['Super Admin configures plant-wide defaults during setup', 'Integrations are connected and tested', 'Settings changes are versioned and logged to the Audit Log'] }
+    };
+
+    let currentRole = 'superadmin';
+    let currentModule = 'dashboard';
+    let charts = {};
+
+    const ROLE_CODE = { superadmin: 'R1', factory: 'R2', maintmgr: 'R3', mainteng: 'R4', inventory: 'R5', procurement: 'R6', supplier: 'R7' };
+    const STATUS_COLORS = {
+      'Running': '#1F9E85', 'In Stock': '#1F9E85', 'Active': '#1F9E85', 'Completed': '#1F9E85', 'Delivered': '#1F9E85', 'Resolved': '#1F9E85', 'Approved': '#1F9E85',
+      'Idle': '#C97F1E', 'Low Stock': '#C97F1E', 'Scheduled': '#C97F1E', 'Expiring Soon': '#C97F1E', 'In Transit': '#C97F1E', 'Pending Approval': '#C97F1E', 'In Progress': '#3E5C8A',
+      'Down': '#D9464F', 'Out of Stock': '#D9464F', 'Overdue': '#D9464F', 'Expired': '#D9464F', 'Open': '#D9464F', 'Suspended': '#D9464F', 'Maintenance': '#3E5C8A'
+    };
+    const CHART_PALETTE = ['#F2A33C', '#1F9E85', '#3E5C8A', '#D9464F', '#8A93A0', '#C97F1E'];
+
+    function statusPill(raw) {
+      const label = raw.replace('status:', '');
+      const color = STATUS_COLORS[label] || '#8A93A0';
+      return `<span class="status-pill" style="background:${color}1A;color:${color}"><span class="pill-dot"></span>${label}</span>`;
+    }
+
+    function renderRoleGrid() {
+      const grid = document.getElementById('role-grid');
+      grid.innerHTML = ROLES.map(r => `<button class="role-card ${r.id === currentRole ? 'active' : ''}" data-role="${r.id}" onclick="selectRole('${r.id}')"><span class="code">${ROLE_CODE[r.id]}</span><span class="name">${r.name}</span></button>`).join('');
+    }
+
+    function selectRole(id) {
+      currentRole = id;
+      document.getElementById('login-role-label').textContent = ROLES.find(r => r.id === id).name;
+      renderRoleGrid();
+    }
+
+    function doLogin() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'block';
+      const role = ROLES.find(r => r.id === currentRole);
+      document.getElementById('user-name').textContent = role.name;
+      document.getElementById('user-role').textContent = ROLE_CODE[currentRole] + ' · ' + role.name;
+      document.getElementById('user-avatar').textContent = role.initials;
+      currentModule = ACCESS.dashboard[currentRole] ? 'dashboard' : firstAccessible();
+      renderRail();
+      navigate(currentModule);
+    }
+
+    function firstAccessible() {
+      for (const g of NAV_GROUPS) {
+        for (const id of g.items) {
+          if (ACCESS[id][currentRole]) return id;
+        }
+      }
+      return 'dashboard';
+    }
+
+    function doLogout() {
+      document.getElementById('app-screen').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('login-email').value = '';
+      document.getElementById('login-pass').value = '';
+    }
+
+    function renderRail() {
+      const nav = document.getElementById('rail-nav');
+      let html = '';
+      NAV_GROUPS.forEach(g => {
+        const visibleItems = g.items.filter(id => ACCESS[id][currentRole]);
+        if (!visibleItems.length) return;
+        html += `<div class="rail-group"><div class="rail-group-label">${g.label}</div>`;
+        visibleItems.forEach(id => {
+          html += `<a href="#" class="rail-item" data-mod="${id}" onclick="navigate('${id}');return false;" title="${MODULES[id].title}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]}</svg><span class="label">${MODULES[id].title}</span></a>`;
+        });
+        html += `</div>`;
+      });
+      nav.innerHTML = html;
+    }
+
+    function navigate(id) {
+      if (!ACCESS[id] || !ACCESS[id][currentRole]) return;
+      currentModule = id;
+      document.querySelectorAll('.rail-item').forEach(el => el.classList.toggle('active', el.dataset.mod === id));
+      const mod = MODULES[id];
+      document.getElementById('page-title').textContent = mod.title;
+      document.getElementById('page-crumb').textContent = (mod.category + ' / ' + mod.title).toUpperCase();
+      Object.values(charts).forEach(c => c && c.destroy && c.destroy());
+      charts = {};
+      const content = document.getElementById('content');
+      content.innerHTML = id === 'dashboard' ? renderDashboard() : renderGenericModule(mod, id);
+      requestAnimationFrame(() => mountCharts(id, mod));
+    }
+
+    function renderDashboard() {
+      return `
+        <div class="kpi-row">
+          <div class="gauge-card live-panel">
+            <div class="gauge-ring" style="--pct:92"><div class="inner"><b>92%</b><span>UPTIME</span></div></div>
+            <div>
+              <div class="gauge-label">FLEET HEALTH</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;">24 machines monitored</div>
+              <div class="gauge-sub">22 running · 1 idle · 1 down</div>
+            </div>
+          </div>
+          <div class="kpi-card live-panel"><div class="top"><div class="icon" style="background:var(--indigo-tint)"><svg viewBox="0 0 24 24" fill="none" stroke="#3E5C8A" stroke-linecap="round" stroke-linejoin="round">${ICONS.maintenance}</svg></div></div><div class="value tnum">12</div><div class="label">Open Work Orders</div><div class="delta" style="color:#C97F1E">3 DUE TODAY</div></div>
+          <div class="kpi-card live-panel"><div class="top"><div class="icon" style="background:var(--crimson-tint)"><svg viewBox="0 0 24 24" fill="none" stroke="#D9464F" stroke-linecap="round" stroke-linejoin="round">${ICONS.breakdowns}</svg></div></div><div class="value tnum">1</div><div class="label">Active Breakdowns</div><div class="delta" style="color:#D9464F">RW-7 · 2H 40M DOWN</div></div>
+          <div class="kpi-card live-panel"><div class="top"><div class="icon" style="background:var(--amber-tint)"><svg viewBox="0 0 24 24" fill="none" stroke="#C97F1E" stroke-linecap="round" stroke-linejoin="round">${ICONS.spareparts}</svg></div></div><div class="value tnum">3</div><div class="label">Low Stock Parts</div><div class="delta" style="color:#C97F1E">REORDER RECOMMENDED</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card live-panel"><h3>Machine Uptime — Last 7 Days</h3><div class="card-sub">Fleet-wide average uptime %</div><div class="chart-box"><canvas id="chart-uptime"></canvas></div></div>
+          <div class="card"><h3>Breakdown Causes</h3><div class="card-sub">Last 30 days, by category</div><div class="chart-box"><canvas id="chart-causes"></canvas></div></div>
+        </div>
+        <div class="card live-panel"><h3>Recent Activity</h3><div class="card-sub">Latest events across modules</div><div class="table-scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Module</th><th>Status</th></tr></thead><tbody><tr><td class="id">10 min ago</td><td class="strong">Stock fell below reorder point — Pressure Valve</td><td>Spare Parts</td><td>${statusPill('status:Out of Stock')}</td></tr><tr><td class="id">1 hr ago</td><td class="strong">Breakdown reported — Robotic Welder RW-7</td><td>Breakdowns</td><td>${statusPill('status:Open')}</td></tr><tr><td class="id">3 hrs ago</td><td class="strong">Work order WO-3298 started</td><td>Maintenance</td><td>${statusPill('status:In Progress')}</td></tr><tr><td class="id">Yesterday</td><td class="strong">PO-2231 approved — Bosch Rexroth India</td><td>Suppliers & Procurement</td><td>${statusPill('status:Approved')}</td></tr></tbody></table></div></div>`;
+    }
+
+    const SETTINGS_GROUPS = [
+      { label: 'PLANT PROFILE', rows: [{ name: 'Company / Plant', value: 'SmartMaint Industries — Plant 04, Chennai', type: 'text' }, { name: 'Default Units', value: 'Metric (kg, °C, mm)', type: 'text' }, { name: 'Currency', value: 'INR — ₹ Indian Rupee', type: 'text' }, { name: 'Timezone', value: 'Asia/Kolkata (UTC +5:30)', type: 'text' }] },
+      { label: 'INTEGRATIONS', rows: [{ name: 'ERP Connection', value: 'SAP S/4HANA — synced 4 min ago', type: 'toggle', on: true }, { name: 'IoT Sensor Gateway', value: '18 sensors online across 3 lines', type: 'toggle', on: true }, { name: 'Email Gateway', value: 'SendGrid — transactional templates', type: 'toggle', on: true }, { name: 'SMS Gateway', value: 'Twilio — critical alerts only', type: 'toggle', on: true }] },
+      { label: 'NOTIFICATION DEFAULTS', rows: [{ name: 'Email Notifications', value: 'Enabled for all roles', type: 'toggle', on: true }, { name: 'Push Notifications', value: 'Enabled for all roles', type: 'toggle', on: true }, { name: 'SMS Notifications', value: 'Critical alerts only', type: 'toggle', on: false }] },
+      { label: 'BRANDING & RETENTION', rows: [{ name: 'Theme', value: 'Light — Engineering', type: 'text' }, { name: 'Audit Log Retention', value: '365 days, then archived', type: 'text' }] }
+    ];
+
+    function renderSettingsPanel() {
+      return `<div class="card live-panel" style="margin-top:16px"><h3>System Configuration</h3><div class="card-sub">Plant-wide defaults — Super Admin scope</div>${SETTINGS_GROUPS.map(g => `<div class="settings-group"><div class="settings-group-label">${g.label}</div>${g.rows.map(r => `<div class="settings-row"><div class="settings-row-name">${r.name}</div><div class="settings-row-value">${r.value}</div>${r.type === 'toggle' ? `<div class="toggle ${r.on ? 'on' : ''}"><div class="knob"></div></div>` : `<div class="settings-row-edit">Edit</div>`}</div>`).join('')}</div>`).join('')}</div>`;
+    }
+
+    function renderGenericModule(mod, id) {
+      const tableHtml = mod.table ? `<div class="card live-panel" style="margin-top:16px"><h3>Records</h3><div class="card-sub">Sample data — illustrative</div><div class="table-scroll"><table><thead><tr>${mod.table.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${mod.table.rows.map(row => `<tr>${row.map((cell, i) => {
+        if (typeof cell === 'string' && cell.startsWith('status:')) return `<td>${statusPill(cell)}</td>`;
+        if (i === 0) return `<td class="id">${cell}</td>`;
+        return `<td class="${i === 1 ? 'strong' : ''}">${cell}</td>`;
+      }).join('')}</tr>`).join('')}</tbody></table></div></div>` : id === 'forecasting' ? `<div class="card live-panel" style="margin-top:16px"><h3>Predicted Demand — Next 90 Days</h3><div class="card-sub">Top 3 parts by predicted consumption vs. current stock</div><div class="chart-box"><canvas id="chart-forecast"></canvas></div></div>` : id === 'settings' ? renderSettingsPanel() : '';
+
+      return `<span class="cat-tag"><span class="sq"></span>${mod.category}</span><p class="page-purpose">${mod.purpose}</p><div class="grid-2"><div class="card"><h3>Key Features & Weightage</h3><div class="card-sub">Relative weight of each capability within this module</div><ul class="feature-list">${mod.features.map(([name, pct]) => `<li><span class="fname">${name}</span><span class="bar-wrap"><span class="bar-fill" style="width:${pct}%"></span></span><span class="fpct">${pct}%</span></li>`).join('')}</ul></div><div class="card"><h3>Feature Breakdown</h3><div class="card-sub">Share of module functionality</div><div class="chart-box small"><canvas id="chart-feat-${id}"></canvas></div></div></div><div class="grid-2"><div class="card"><h3>Primary Roles</h3><p class="roles-line">${mod.roles}</p><h3 style="margin-top:18px">Core Data Fields</h3><div class="fields-chip-row" style="margin-top:10px">${mod.fields.map(f => `<span class="fields-chip">${f}</span>`).join('')}</div></div><div class="card"><h3>Workflow</h3><div class="card-sub">How this module operates end-to-end</div><ol class="workflow-steps">${mod.workflow.map(s => `<li>${s}</li>`).join('')}</ol></div></div>${tableHtml}`;
+    }
+
+    function mountCharts(id, mod) {
+      if (id === 'dashboard') {
+        const ctx1 = document.getElementById('chart-uptime');
+        if (ctx1) charts.uptime = new Chart(ctx1, { type: 'line', data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Uptime %', data: [88,91,90,93,89,95,92], borderColor: '#F2A33C', backgroundColor: 'rgba(242,163,60,.12)', fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: '#F2A33C', borderWidth: 2 }] }, options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 80, max: 100, ticks: { color: '#8A93A0', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: '#DCE2E8' } }, x: { ticks: { color: '#8A93A0', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { display: false } } } } );
+        const ctx2 = document.getElementById('chart-causes');
+        if (ctx2) charts.causes = new Chart(ctx2, { type: 'doughnut', data: { labels: ['Mechanical wear', 'Electrical fault', 'Operator error', 'Overheating', 'Other'], datasets: [{ data: [34, 26, 16, 15, 9], backgroundColor: CHART_PALETTE, borderColor: '#FFFFFF', borderWidth: 3 }] }, options: { cutout: '64%', maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#5B6672', boxWidth: 9, padding: 10, font: { size: 10.5, family: 'IBM Plex Sans' } } } } } );
+        return;
+      }
+
+      const featCtx = document.getElementById(`chart-feat-${id}`);
+      if (featCtx && mod.features) {
+        charts.feat = new Chart(featCtx, { type: 'doughnut', data: { labels: mod.features.map(f => f[0]), datasets: [{ data: mod.features.map(f => f[1]), backgroundColor: CHART_PALETTE, borderColor: '#FFFFFF', borderWidth: 3 }] }, options: { cutout: '62%', maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#5B6672', boxWidth: 8, padding: 8, font: { size: 10, family: 'IBM Plex Sans' } } } } } );
+      }
+
+      const fcCtx = document.getElementById('chart-forecast');
+      if (fcCtx) {
+        charts.forecast = new Chart(fcCtx, { type: 'line', data: { labels: ['Now', '+15d', '+30d', '+45d', '+60d', '+75d', '+90d'], datasets: [{ label: 'Hydraulic Seal Kit', data: [6,5,4,3,2,1,0], borderColor: '#D9464F', backgroundColor: 'transparent', tension: .35 }, { label: 'Servo Motor 2.2kW', data: [2,2,1,1,1,0,0], borderColor: '#C97F1E', backgroundColor: 'transparent', tension: .35 }, { label: 'Bearing 6205-2RS', data: [42,38,33,29,24,20,16], borderColor: '#1F9E85', backgroundColor: 'transparent', tension: .35 }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#5B6672', boxWidth: 10, font: { size: 10.5, family: 'IBM Plex Sans' } } } }, scales: { y: { ticks: { color: '#8A93A0', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: '#DCE2E8' } }, x: { ticks: { color: '#8A93A0', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { display: false } } } } );
+      }
+    }
+
+    renderRoleGrid();
+  </script>
+</body>
+</html>
