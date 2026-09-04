@@ -20,3 +20,13 @@ This is the backend foundation for the SmartMaint prototype. The original `Smart
 - `GET /api/dashboard/summary` - dashboard KPI aggregates
 
 Protected routes require `Authorization: Bearer <token>`.
+
+## Frontend
+
+The Vite React frontend lives in `client/`.
+
+```bash
+cd client
+npm install
+npm run dev
+```
