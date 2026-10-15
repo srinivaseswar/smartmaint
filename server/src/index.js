@@ -40,6 +40,10 @@ app.use((err, req, res, next) => {
 let resolvedMongoUri = MONGO_URI;
 
 if (!resolvedMongoUri) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('MONGO_URI is required in production. Set it to your MongoDB Atlas connection string in the service environment.');
+    process.exit(1);
+  }
   const memoryServer = await MongoMemoryServer.create();
   resolvedMongoUri = memoryServer.getUri();
   console.log(`Using in-memory MongoDB at ${resolvedMongoUri}`);
@@ -49,7 +53,8 @@ try {
   await mongoose.connect(resolvedMongoUri);
   console.log('MongoDB connected');
 } catch (e) {
-  console.error(`Cannot connect to MongoDB at ${resolvedMongoUri}\n${e.message}`);
+  const detail = String(e.message || e).replaceAll(resolvedMongoUri, '[MONGO_URI]');
+  console.error(`Cannot connect to MongoDB. Check MONGO_URI, Atlas network access, and database credentials.\n${detail}`);
   process.exit(1);
 }
 app.listen(PORT, () => console.log(`SmartMaint API running on http://localhost:${PORT}`));
